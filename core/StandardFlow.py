@@ -5,23 +5,18 @@ import time
 
 import yaml
 
-from typing import Any
-
 from tools.Re import resolve_data
-from utils.Request import req_meta
 from utils.Pool import StandardRuntimeVariablePool
-from utils.Executor import exec_step as exec_db_step
 from tools.Files import get_yaml_content, get_env_val
-from dto.StandardDBTemplate import StandardDBStepStruct
-from dto.StandardHttpTemplate import StandardReqYAMLSetStruct
-from dto.StandardLayerResponseTemplate import StandardLayerStructTemplate
 from dto.StandardYAMLAnalysisTemplate import (
     StandardFlowMetaStruct,
     StandardStepRawStruct,
     StandardStepResult,
     StandardFlowResult,
 )
-from utils.Engine import parse_meta, parse_steps, jsonpath_get
+from utils.Engine import parse_meta, parse_steps
+from core.StandardStepPipeline import ensure_installed, run_step_pipeline
+from dto.StandardStepPipelineTemplate import StepPipelineContext
 
 def _load_env_to_pool(yaml_path: str, pool: StandardRuntimeVariablePool) -> None:
     """扫描 YAML 中所有 ${env.XXX} 引用，加载到变量池"""
@@ -107,114 +102,16 @@ async def execute_step(
 ) -> StandardStepResult:
     """
     执行单个 step。
-    流程: resolve → db_setup(inject) → HTTP → extract → validate
+    按 step.pipeline(或按是否含 request 推导)选择已注册的步骤组合。
+    默认: http = db_setup → [HTTP → extract → validate] → db_checks; db = 纯 DB 步骤。
+    无 request 时也可作为纯 DB 步骤(如先查库取数, 供后续步骤引用)。
     """
-    errors: list[str] = []
-    extracted: dict[str, Any] = {}
-
-    # ── resolve 运行时占位符 ─────────────────────────────
-    if not step.request: return StandardStepResult(name=step.name, passed=True)
-
-    req_dict: dict = step.request.model_dump()
-    req_resolved: dict = resolve_data(req_dict, pool)
-
-    # ── db_setup ──────────────────────────────────────────
-    if step.db_setup:
-        for ds_dict in step.db_setup:
-            ds_resolved: dict = resolve_data(ds_dict, pool)
-            ds_struct: StandardDBStepStruct = StandardDBStepStruct.from_dict(ds_resolved)
-            ds_result: StandardLayerStructTemplate = exec_db_step(ds_struct)
-            if ds_result.is_error:
-                return StandardStepResult(
-                    name=step.name,
-                    passed=False,
-                    errors=[f"db_setup 失败: {ds_result.message}"],
-                )
-
-    # ── HTTP 请求 ────────────────────────────────────────
-    try:
-        req_struct: StandardReqYAMLSetStruct = StandardReqYAMLSetStruct.from_dict(req_resolved)
-        result: StandardLayerStructTemplate = await req_meta(
-            data=req_struct, base_url=base_url, timeout=timeout
-        )
-    except Exception as exc:
-        return StandardStepResult(
-            name=step.name,
-            passed=False,
-            errors=[f"请求异常: {exc}"],
-        )
-
-    if result.is_error:
-        return StandardStepResult(
-            name=step.name,
-            passed=False,
-            errors=[result.message or "请求失败"],
-        )
-
-    resp_data: dict = result.data or {}
-    status_code: int | None = resp_data.get("status_code")
-    resp_body: Any = resp_data.get("body", {})
-
-    # ── extract ──────────────────────────────────────────
-    resp_json: Any = resp_body if isinstance(resp_body, dict) else {}
-    if step.extract:
-        for var_name, jsonpath_expr in step.extract.items():
-            value: Any = jsonpath_get(resp_json, jsonpath_expr)
-            if value is not None:
-                pool.set_runtime(var_name, value)
-                extracted[var_name] = value
-
-    # ── validate ─────────────────────────────────────────
-    all_passed: bool = True
-    if step.validations:
-        for v in step.validations:
-            check: str = v.get("check", "")
-            assert_type: str = v.get("assert", "equals")
-            expected: Any = v.get("value")
-
-            if check == "status_code":
-                if status_code != expected:
-                    all_passed = False
-                    errors.append(
-                        f"状态码断言失败: 期望 {expected}, 实际 {status_code}"
-                    )
-
-            elif check.startswith("$."):
-                actual: Any = jsonpath_get(resp_json, check)
-                # 目前只支持 equals
-                if actual != expected:
-                    all_passed = False
-                    errors.append(
-                        f"{check} 断言失败: 期望 {expected}, 实际 {actual}"
-                    )
-
-    # ── db_checks ─────────────────────────────────────────
-    if step.db_checks:
-        for dc_dict in step.db_checks:
-            dc_dict.setdefault("action", "SELECT")
-            dc_resolved: dict = resolve_data(dc_dict, pool)
-            dc_struct: StandardDBStepStruct = StandardDBStepStruct.from_dict(dc_resolved)
-            dc_result: StandardLayerStructTemplate = exec_db_step(dc_struct)
-
-            if dc_result.is_error:
-                all_passed = False
-                errors.append(f"db_checks 查询失败: {dc_result.message}")
-            elif dc_struct.expected is not None:
-                rows: list[dict] = dc_result.data or []
-                if dc_struct.expected and not rows:
-                    all_passed = False
-                    errors.append(f"db_checks 预期有数据, 但 {dc_struct.table} 查询无结果")
-                elif not dc_struct.expected and rows:
-                    all_passed = False
-                    errors.append(
-                        f"db_checks 预期无数据, 但 {dc_struct.table} 返回 {len(rows)} 条"
-                    )
-
-    return StandardStepResult(
-        name=step.name,
-        passed=all_passed,
-        request_sent=req_resolved,
-        response=resp_data,
-        extracted_vars=extracted or None,
-        errors=errors,
+    ensure_installed()
+    ctx: StepPipelineContext = StepPipelineContext(
+        step=step,
+        pool=pool,
+        base_url=base_url,
+        timeout=timeout,
     )
+    name: str = step.pipeline or ("http" if step.request else "db")
+    return await run_step_pipeline(name, ctx)

@@ -18,7 +18,7 @@ def jsonpath_get(data: dict | list, expr: str) -> Any:
                 idx: int = int(key)
                 current = current[idx] if 0 <= idx < len(current) else None
             case _: return
-        if not current: return
+        if current is None: return
     return current
 
 def parse_meta(resolved: dict) -> StandardFlowMetaStruct:
@@ -42,6 +42,7 @@ def parse_steps(resolved: dict) -> list[StandardStepRawStruct]:
 
         step: StandardStepRawStruct = StandardStepRawStruct(
             name=sd.get("name", ""),
+            pipeline=sd.get("pipeline"),
             request=request,
             db_setup=sd.get("db_setup"),
             db_checks=sd.get("db_checks"),

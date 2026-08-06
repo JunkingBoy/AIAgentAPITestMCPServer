@@ -10,6 +10,22 @@ if isinstance(sys.stderr, io.TextIOWrapper): sys.stderr.reconfigure(encoding="ut
 from core.StandardFlow import run
 from tools.Files import get_yaml_content
 
+# ── SCRM 呼叫回调用例启动命令 ─────────────────────────────────────
+# 运行前: 确认 .env.dev 里的 CLUE_ID 为该场景对应的数据
+#
+# 场景2 跟进完成,已接通,无效 (当前 CLUE_ID=1244667):
+#   .venv/Scripts/python.exe main.py --path cases/scrm_callback_2_connected_invalid.yaml
+#
+# 场景1 跟进完成,未接通:
+#   .venv/Scripts/python.exe main.py --path cases/scrm_callback_1_no_answer.yaml
+#
+# 场景3 跟进完成,已接通,有效:
+#   .venv/Scripts/python.exe main.py --path cases/scrm_callback_3_connected_valid.yaml
+#
+# 场景4 跟进中:
+#   .venv/Scripts/python.exe main.py --path cases/scrm_callback_4_following.yaml
+# ─────────────────────────────────────────────────────────────────
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="LabelNetwork API 测试执行器")
     parser.add_argument(

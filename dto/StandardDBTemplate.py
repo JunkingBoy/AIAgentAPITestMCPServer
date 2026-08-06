@@ -38,6 +38,7 @@ class StandardDBStepStruct(BaseModel):
     fields: list[str] | None = None
     where: dict | None = None
     expected: bool | None = None   # True=有结果, False=无结果, None=不校验
+    inject: dict[str, str] | None = None  # {变量名: 列名}, 把查询结果第一行的指定列写入运行时变量池
 
     @classmethod
     def from_dict(cls, data: dict) -> "StandardDBStepStruct": return cls.model_validate(data)

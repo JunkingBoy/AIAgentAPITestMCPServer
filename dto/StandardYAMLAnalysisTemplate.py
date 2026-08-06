@@ -26,6 +26,7 @@ class StandardStepRawStruct(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     name: str
+    pipeline: str | None = None            # 可选: 指定 step 级 pipeline 组合, 缺省按 request 是否为空推导
     request: StandardReqYAMLSetStruct | None = None
     db_setup: list[dict] | None = None
     db_checks: list[dict] | None = None
