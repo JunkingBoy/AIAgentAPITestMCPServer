@@ -47,14 +47,18 @@ def _jsonable(obj):
     if obj is None: return None
     return str(obj)
 
-def _truncate(s: str, n: int = 2000) -> str:
-    """超长截断, 附省略标记。"""
-    if s is None: return ""
-    if len(s) > n: return s[:n] + f" ...(截断 {len(s) - n} 字符)"
-    return s
+_EXCEL_MAX_CELL: int = 32767   # Excel 单单元格最大字符数(平台硬限制)
 
-def _json_pretty(obj, maxlen: int = 2000) -> str:
-    """对象 → 缩进 JSON 字符串(截断)。"""
+def _truncate(s: str, n: int | None = None) -> str:
+    """超长截断, 附省略标记。n=None → 不截断, 返回原串。"""
+    if s is None: return ""
+    if n is None or len(s) <= n: return s
+    marker: str = f" ...(截断 {len(s)} 字符)"
+    cut: int = max(0, n - len(marker))
+    return s[:cut] + f" ...(截断 {len(s) - cut} 字符)"
+
+def _json_pretty(obj, maxlen: int | None = None) -> str:
+    """对象 → 缩进 JSON 字符串。maxlen=None → 不截断。"""
     return _truncate(json.dumps(_jsonable(obj), ensure_ascii=False, indent=2), maxlen)
 
 def _esc(s) -> str:
@@ -86,7 +90,7 @@ h2 { font-size:17px; margin:28px 0 10px; border-bottom:1px solid #d1d5db; paddin
 table { border-collapse:collapse; width:100%; margin:8px 0; font-size:13px; }
 th,td { border:1px solid #e5e7eb; padding:6px 10px; text-align:left; vertical-align:top; }
 th { background:#f9fafb; font-weight:600; white-space:nowrap; }
-pre { background:#f8fafc; border:1px solid #e5e7eb; border-radius:6px; padding:10px; font-size:12px; overflow-x:auto; margin:6px 0 0; }
+pre { background:#f8fafc; border:1px solid #e5e7eb; border-radius:6px; padding:10px; font-size:12px; overflow-x:auto; white-space:pre-wrap; word-break:break-all; margin:6px 0 0; }
 .op { margin:10px 0 0; padding-top:10px; border-top:1px dashed #e5e7eb; }
 .op .ophead { font-size:13px; font-weight:600; color:#374151; }
 .op .ophead .s { color:#6b7280; font-weight:400; }
@@ -230,7 +234,7 @@ def generate_excel(result: StandardFlowResult, path: str) -> None:
             result.flow_name,
             step.name,
             "PASS" if step.passed else "FAIL",
-            _json_pretty(step.extracted_vars, 2000) if step.extracted_vars else "",
+            _json_pretty(step.extracted_vars, _EXCEL_MAX_CELL) if step.extracted_vars else "",
             "；".join(step.errors) if step.errors else "",
             "，".join(op.get("type", "?") for op in step.operations),
         ])
@@ -243,7 +247,7 @@ def generate_excel(result: StandardFlowResult, path: str) -> None:
 
     # ── 操作明细 ──
     ws3 = wb.create_sheet("操作明细")
-    ws3.append(["流程", "步骤", "操作类型", "详情", "返回行数", "通过", "错误"])
+    ws3.append(["流程", "步骤", "操作类型", "详情", "请求体", "响应体", "返回行数", "通过", "错误"])
     for step in result.steps:
         for op in step.operations:
             ws3.append([
@@ -251,13 +255,15 @@ def generate_excel(result: StandardFlowResult, path: str) -> None:
                 step.name,
                 op.get("type", "?"),
                 _excel_op_detail(op),
+                _json_pretty(op.get("request"), _EXCEL_MAX_CELL) if op.get("request") else "",
+                _json_pretty(op.get("response"), _EXCEL_MAX_CELL) if op.get("response") else "",
                 op.get("rows_count", ""),
                 "是" if op.get("passed") else "否",
                 op.get("error") or "",
             ])
-            ws3.cell(row=ws3.max_row, column=6).fill = pass_fill if op.get("passed") else fail_fill
+            ws3.cell(row=ws3.max_row, column=8).fill = pass_fill if op.get("passed") else fail_fill
     _style_header(ws3)
-    for col, w in zip("ABCDEFG", (18, 28, 12, 80, 12, 8, 60)):
+    for col, w in zip("ABCDEFGHI", (18, 28, 12, 60, 90, 90, 12, 8, 60)):
         ws3.column_dimensions[col].width = w
     for row in ws3.iter_rows(min_row=2):
         for c in row: c.alignment = wrap
@@ -265,9 +271,9 @@ def generate_excel(result: StandardFlowResult, path: str) -> None:
     wb.save(path)
 
 def _excel_op_detail(op: dict) -> str:
-    """操作摘要: DB 保留结构信息, HTTP 剔除大 body。"""
+    """操作摘要: HTTP 的 request/response 有独立列展示, 此处不再重复携带。"""
     d: dict = dict(op)
     if d.get("type") == "http":
         d.pop("request", None)
         d.pop("response", None)
-    return _json_pretty(d, 2000)
+    return _json_pretty(d, _EXCEL_MAX_CELL)
