@@ -41,9 +41,13 @@ class StandardStepResult:
     response: dict | None = None
     extracted_vars: dict[str, Any] | None = None
     errors: list[str] = field(default_factory=list)
+    operations: list[dict] = field(default_factory=list)   # 报告专用: 逐步操作痕迹, 控制台 JSON 不展示
 
     @property
-    def info(self) -> dict: return copy.deepcopy(self.__dict__)
+    def info(self) -> dict:
+        info: dict = copy.deepcopy(self.__dict__)
+        info.pop("operations", None)   # 报告专用字段, 从控制台输出排除
+        return info
 
 @dataclass
 class StandardFlowResult:
@@ -62,6 +66,11 @@ class StandardFlowResult:
     def info(self) -> dict: return copy.deepcopy(self._info())
 
     def _info(self) -> dict:
+        steps_info: list[dict] = []
+        for s in self.steps:
+            d: dict = asdict(s)
+            d.pop("operations", None)   # 报告专用字段, 从控制台输出排除
+            steps_info.append(d)
         return {
             "flow_name": self.flow_name,
             "total": self.total,
@@ -69,5 +78,5 @@ class StandardFlowResult:
             "failed": self.failed,
             "is_passed": self.is_passed,
             "duration": round(self.duration, 3),
-            "steps": [asdict(s) for s in self.steps],
+            "steps": steps_info,
         }

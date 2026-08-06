@@ -19,3 +19,4 @@ test_*.sql
 logs/
 tmp/
 config/
+reports/

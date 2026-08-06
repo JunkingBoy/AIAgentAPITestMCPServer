@@ -8,6 +8,7 @@ dependencies = [
     "dbutils>=3.1.2",
     "dotenv>=0.9.9",
     "httpx>=0.28.1",
+    "openpyxl>=3.1.5",
     "oracledb>=4.0.1",
     "pydantic>=2.13.4",
     "pymysql>=1.2.0",

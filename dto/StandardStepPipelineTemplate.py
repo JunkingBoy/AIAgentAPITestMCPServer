@@ -43,4 +43,5 @@ class StepPipelineContext:
     extract: ExtractStepContext = field(default_factory=ExtractStepContext)
     validate: ValidateStepContext = field(default_factory=ValidateStepContext)
     stages: set[str] = field(default_factory=set)          # 已执行阶段标记(finalize 做覆盖校验)
+    operations: list[dict] = field(default_factory=list)   # 报告专用: 逐步操作痕迹(按执行顺序)
     result: StandardStepResult | None = None                # 非 None = 短路信号
