@@ -69,33 +69,92 @@ def _esc(s) -> str:
 #  HTML 报告
 # ═══════════════════════════════════════════════════════════════
 _CSS = """
-body { font-family:'Segoe UI','Microsoft YaHei',sans-serif; margin:24px; color:#1f2937; background:#f3f4f6; }
-h1 { font-size:22px; margin:0 0 4px; }
-h2 { font-size:17px; margin:28px 0 10px; border-bottom:1px solid #d1d5db; padding-bottom:6px; }
-.meta { color:#6b7280; font-size:13px; margin-bottom:16px; }
+body { font-family:'Segoe UI','Microsoft YaHei',sans-serif; margin:24px; color:#1f2937; background:#f3f4f6; overflow-x:hidden; }
+h1 { font-size:22px; margin:0 0 4px; overflow-wrap:anywhere; word-break:break-all; }
+h2 { font-size:17px; margin:28px 0 10px; border-bottom:1px solid #d1d5db; padding-bottom:6px; overflow-wrap:anywhere; word-break:break-all; }
+.meta { color:#6b7280; font-size:13px; margin-bottom:16px; overflow-wrap:anywhere; word-break:break-all; }
 .cards { display:flex; gap:14px; flex-wrap:wrap; margin:16px 0 8px; }
 .card { background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:14px 20px; min-width:110px; text-align:center; box-shadow:0 1px 2px rgba(0,0,0,.04); }
 .card .num { font-size:26px; font-weight:700; }
 .card .lbl { font-size:12px; color:#6b7280; margin-top:2px; }
 .card.ok .num { color:#16a34a; }
 .card.bad .num { color:#dc2626; }
-.step { background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:14px 18px; margin:12px 0; box-shadow:0 1px 2px rgba(0,0,0,.04); }
-.step .head { display:flex; align-items:center; gap:10px; }
-.badge { font-size:12px; font-weight:700; padding:3px 10px; border-radius:999px; color:#fff; }
+.step { background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:14px 18px; margin:12px 0; box-shadow:0 1px 2px rgba(0,0,0,.04); max-width:100%; min-width:0; overflow:hidden; }
+.step .head { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.badge { font-size:12px; font-weight:700; padding:3px 10px; border-radius:999px; color:#fff; flex:none; }
 .badge.pass { background:#16a34a; }
 .badge.fail { background:#dc2626; }
-.step .name { font-size:15px; font-weight:600; }
-.err { color:#dc2626; font-size:13px; margin:8px 0 0; }
+.step .name { font-size:15px; font-weight:600; min-width:0; overflow-wrap:anywhere; word-break:break-all; }
+.err { color:#dc2626; font-size:13px; margin:8px 0 0; overflow-wrap:anywhere; word-break:break-all; }
 .err::before { content:'⚠ '; }
-table { border-collapse:collapse; width:100%; margin:8px 0; font-size:13px; }
-th,td { border:1px solid #e5e7eb; padding:6px 10px; text-align:left; vertical-align:top; }
-th { background:#f9fafb; font-weight:600; white-space:nowrap; }
-pre { background:#f8fafc; border:1px solid #e5e7eb; border-radius:6px; padding:10px; font-size:12px; overflow-x:auto; white-space:pre-wrap; word-break:break-all; margin:6px 0 0; }
-.op { margin:10px 0 0; padding-top:10px; border-top:1px dashed #e5e7eb; }
-.op .ophead { font-size:13px; font-weight:600; color:#374151; }
+table { table-layout:fixed; border-collapse:collapse; width:100%; margin:8px 0; font-size:13px; }
+th,td { border:1px solid #e5e7eb; padding:6px 10px; text-align:left; vertical-align:top; overflow-wrap:anywhere; word-break:break-all; }
+th { background:#f9fafb; font-weight:600; }
+pre { background:#f8fafc; border:1px solid #e5e7eb; border-radius:6px; padding:10px; font-size:12px; overflow-x:auto; white-space:pre-wrap; word-break:break-all; overflow-wrap:anywhere; max-width:100%; box-sizing:border-box; margin:6px 0 0; }
+.op { margin:10px 0 0; padding-top:10px; border-top:1px dashed #e5e7eb; max-width:100%; min-width:0; overflow:hidden; }
+.op .ophead { font-size:13px; font-weight:600; color:#374151; overflow-wrap:anywhere; word-break:break-all; }
 .op .ophead .s { color:#6b7280; font-weight:400; }
-.op .rows { color:#6b7280; font-size:12px; margin-top:6px; }
-.kv { font-size:12px; color:#6b7280; margin:6px 0 0; }
+.op .rows { color:#6b7280; font-size:12px; margin-top:6px; overflow-wrap:anywhere; word-break:break-all; }
+.kv { font-size:12px; color:#6b7280; margin:6px 0 0; overflow-wrap:anywhere; word-break:break-all; }
+/* ── 通过/失败 卡片可点击 ── */
+.card.clickable { cursor:pointer; user-select:none; }
+.card.clickable:hover { border-color:#93c5fd; box-shadow:0 2px 8px rgba(0,0,0,.10); }
+.card .arrow { font-size:10px; color:#9ca3af; margin-left:2px; }
+/* ── 下拉面板: 固定定位, 不撑破页面布局 ── */
+.drop { position:fixed; top:76px; left:50%; transform:translateX(-50%); width:min(600px, calc(100vw - 32px)); max-height:calc(100vh - 104px); background:#fff; border:1px solid #d1d5db; border-radius:12px; box-shadow:0 12px 32px rgba(0,0,0,.20); z-index:1000; display:flex; flex-direction:column; overflow:hidden; }
+.drop-head { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 14px; border-bottom:1px solid #e5e7eb; font-weight:600; font-size:13px; flex:none; }
+.drop-head .cnt { color:#6b7280; font-weight:400; font-size:12px; }
+.drop-close { border:none; background:#f3f4f6; border-radius:8px; width:26px; height:26px; cursor:pointer; font-size:16px; line-height:1; color:#374151; flex:none; }
+.drop-close:hover { background:#e5e7eb; }
+.drop-list { overflow-y:auto; flex:1 1 auto; min-height:48px; padding:6px; }
+.drop-item { padding:8px 12px; font-size:12px; border-radius:8px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:2px; color:#1f2937; }
+.drop-item:hover { background:#eef2ff; }
+.drop-empty { color:#9ca3af; font-size:13px; padding:14px 10px; text-align:center; }
+.target-flash { animation: flashBg 1.6s ease; border-radius:8px; }
+@keyframes flashBg { 0%,55% { background:#fef3c7; } 100% { background:transparent; } }
+"""
+
+_DROP_JS: str = """
+<script>
+(function () {
+  var CLOSED = 'none';
+  function closeAll() {
+    document.querySelectorAll('.drop').forEach(function (d) { d.style.display = CLOSED; });
+  }
+  function toggle(pid) {
+    var d = document.getElementById(pid);
+    if (!d) return;
+    var open = d.style.display !== CLOSED;
+    closeAll();
+    if (!open) d.style.display = 'flex';
+  }
+  document.addEventListener('click', function (e) {
+    var card = e.target.closest('.card.clickable');
+    if (card) { toggle(card.getAttribute('data-drop')); return; }
+    if (e.target.closest('.drop')) return;
+    closeAll();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeAll();
+  });
+  document.querySelectorAll('.drop').forEach(function (d) {
+    var close = d.querySelector('.drop-close');
+    if (close) close.addEventListener('click', function () { d.style.display = CLOSED; });
+    d.querySelectorAll('.drop-item').forEach(function (it) {
+      it.addEventListener('click', function () {
+        var target = document.getElementById(it.getAttribute('data-target'));
+        closeAll();
+        if (!target) return;
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        target.classList.remove('target-flash');
+        void target.offsetWidth;
+        target.classList.add('target-flash');
+        setTimeout(function () { target.classList.remove('target-flash'); }, 1600);
+      });
+    });
+  });
+})();
+</script>
 """
 
 def generate_html(result: StandardFlowResult, path: str) -> None:
@@ -115,41 +174,67 @@ def generate_html(result: StandardFlowResult, path: str) -> None:
 
     parts.append("<div class='cards'>")
     parts.append(f"<div class='card'><div class='num'>{total}</div><div class='lbl'>步骤数</div></div>")
-    parts.append(f"<div class='card ok'><div class='num'>{passed}</div><div class='lbl'>通过</div></div>")
-    parts.append(f"<div class='card bad'><div class='num'>{failed}</div><div class='lbl'>失败</div></div>")
+    parts.append(f"<div class='card ok clickable' data-drop='drop-pass' role='button' tabindex='0' title='点击展开通过的操作列表'>"
+                 f"<div class='num'>{passed}</div><div class='lbl'>通过 <span class='arrow'>▾</span></div></div>")
+    parts.append(f"<div class='card bad clickable' data-drop='drop-fail' role='button' tabindex='0' title='点击展开失败的操作列表'>"
+                 f"<div class='num'>{failed}</div><div class='lbl'>失败 <span class='arrow'>▾</span></div></div>")
     parts.append(f"<div class='card'><div class='num'>{rate}%</div><div class='lbl'>通过率</div></div>")
     parts.append(f"<div class='card'><div class='num'>{round(result.duration, 3)}</div><div class='lbl'>耗时(秒)</div></div>")
     parts.append("</div>")
 
-    for step in result.steps:
-        parts.append(_render_step_html(step))
+    # 收集 通过/失败 的操作列表(下拉面板用, 与渲染共用同一 op 编号)
+    passed_items: list[tuple] = []
+    failed_items: list[tuple] = []
+    op_index: int = 0
+    for i, step in enumerate(result.steps):
+        chunk, items, op_index = _render_step_html(step, i, op_index)
+        parts.append(chunk)
+        passed_items.extend(items["passed"])
+        failed_items.extend(items["failed"])
+
+    # 失败但无任何操作 → 补步骤级条目(跳转到步骤卡片)
+    for i, step in enumerate(result.steps):
+        if not step.operations and not step.passed:
+            failed_items.append((f"步骤: {step.name}", step.name, f"step-{i}"))
+
+    parts.append(_drop_panel_html("pass", passed_items, "通过的操作"))
+    parts.append(_drop_panel_html("fail", failed_items, "失败的操作"))
+    parts.append(_DROP_JS)
 
     parts.append("</body></html>")
     with open(path, "w", encoding="utf-8") as f:
         f.write("\n".join(parts))
 
-def _render_step_html(step: StandardStepResult) -> str:
+def _render_step_html(step: StandardStepResult, step_index: int, start_op: int) -> tuple[str, dict, int]:
+    """渲染单个步骤卡片。返回 (html, {"passed": 通过项, "failed": 失败项}, 下一 op 编号)。"""
     badge: str = "<span class='badge pass'>PASS</span>" if step.passed else "<span class='badge fail'>FAIL</span>"
-    out: list[str] = [f"<div class='step'><div class='head'>{badge}<span class='name'>{_esc(step.name)}</span></div>"]
+    out: list[str] = [f"<div class='step' id='step-{step_index}'><div class='head'>{badge}<span class='name'>{_esc(step.name)}</span></div>"]
 
     if step.errors:
         out.append("<div>" + "".join(f"<div class='err'>{_esc(e)}</div>" for e in step.errors) + "</div>")
 
     if step.extracted_vars:
-        out.append("<table><tr><th>提取字段</th><th>值</th></tr>")
+        out.append("<table><colgroup><col style='width:160px'><col></colgroup>"
+                   "<tr><th>提取字段</th><th>值</th></tr>")
         for k, v in step.extracted_vars.items():
             out.append(f"<tr><td>{_esc(k)}</td><td><pre>{_esc(_json_pretty(v))}</pre></td></tr>")
         out.append("</table>")
 
+    passed_items: list[tuple] = []
+    failed_items: list[tuple] = []
     for op in step.operations:
-        out.append(_render_op_html(op))
+        op_id: str = f"op-{start_op}"
+        out.append(_render_op_html(op, op_id))
+        item: tuple = _op_list_item(op, step.name, op_id)
+        (passed_items if op.get("passed") else failed_items).append(item)
+        start_op += 1
 
     out.append("</div>")
-    return "".join(out)
+    return "".join(out), {"passed": passed_items, "failed": failed_items}, start_op
 
-def _render_op_html(op: dict) -> str:
+def _render_op_html(op: dict, op_id: str) -> str:
     t: str = op.get("type", "?")
-    out: list[str] = ["<div class='op'>"]
+    out: list[str] = [f"<div class='op' id='{op_id}'>"]
     if t == "http":
         out.append(f"<div class='ophead'>HTTP <span class='s'>[{_esc(op.get('method'))}] {_esc(op.get('path'))}"
                    f" → {_esc(op.get('status_code'))} ｜ {_esc(op.get('elapsed'))}s</span></div>")
@@ -184,6 +269,38 @@ def _render_op_html(op: dict) -> str:
             out.append("</table>")
     out.append("</div>")
     return "".join(out)
+
+def _op_list_item(op: dict, step_name: str, op_id: str) -> tuple[str, str, str]:
+    """下拉面板条目: (短标签, title 全文, 跳转锚点 id)。短标签单行省略号截断, 全文悬停查看。"""
+    if op.get("type") == "http":
+        label: str = f"HTTP {op.get('method')} {op.get('path')} → {op.get('status_code')}"
+        full: str = (f"步骤: {step_name}\n"
+                     f"HTTP {op.get('method')} {op.get('path')} → {op.get('status_code')}｜耗时 {op.get('elapsed')}s\n"
+                     f"url: {op.get('url') or ''}")
+        if op.get("error"):
+            full += f"\n错误: {op['error']}"
+    else:
+        action: str = (op.get("action") or "").upper()
+        label = f"DB [{op.get('type')}] {op.get('table')} {action}"
+        full = (f"步骤: {step_name}\n"
+                f"DB [{op.get('type')}] {op.get('profile')}.{op.get('table')} {action}｜返回 {op.get('rows_count')} 行")
+        if op.get("error"):
+            full += f"\n错误: {op['error']}"
+    return label, full, op_id
+
+def _drop_panel_html(kind: str, items: list[tuple], title: str) -> str:
+    """渲染一个隐藏的下拉面板(通过/失败)。默认 display:none, JS 切换显示。"""
+    if items:
+        body: str = "".join(
+            f"<div class='drop-item' data-target='{_esc(t)}' title='{_esc(full)}'>{_esc(label)}</div>"
+            for label, full, t in items
+        )
+    else:
+        body = "<div class='drop-empty'>暂无内容</div>"
+    return (f"<div class='drop' id='drop-{kind}' style='display:none'>"
+            f"<div class='drop-head'><span>{_esc(title)} <span class='cnt'>({len(items)})</span></span>"
+            f"<button class='drop-close' type='button' aria-label='关闭'>×</button></div>"
+            f"<div class='drop-list'>{body}</div></div>")
 
 # ═══════════════════════════════════════════════════════════════
 #  Excel 报告 (.xlsx, openpyxl)
