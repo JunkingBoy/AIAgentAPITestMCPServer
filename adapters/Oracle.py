@@ -7,7 +7,48 @@ import traceback
 from typing import Any, cast
 
 from utils.Logs import ExceptionLog
+from tools.Files import get_env_val
 from dto.StandardDBTemplate import StandardDBConnectParamsStruct
+
+def is_thick_mode_enabled() -> bool:
+    """读取 ORACLE_THICK_MODE_ENABLED 开关, 判断是否启用 thick 模式。
+    开启值: true/1/on/yes(大小写不敏感); 缺字段或其它值 → False(thin)。"""
+    val: str = get_env_val("ORACLE_THICK_MODE_ENABLED")
+    if not val: return False
+    return val.strip().lower() in ("true", "1", "yes", "on")
+
+def ensure_oracle_client() -> None:
+    """进程内启用 oracledb thick 模式(幂等, 应在首次 oracledb 连接前调用)。
+    仅当开关开启且配置了 ORACLE_CLIENT_LIB_DIR 时生效;
+    未开启 / 未配置路径 / 初始化失败 → 保持 thin 模式并记录日志。"""
+    if not oracledb.is_thin_mode(): return  # 已是 thick 模式
+    if not is_thick_mode_enabled():
+        ExceptionLog.info("[Oracle] ORACLE_THICK_MODE_ENABLED 未开启, 使用 thin 模式")
+        return
+    lib_dir: str = get_env_val("ORACLE_CLIENT_LIB_DIR")
+    if not lib_dir:
+        ExceptionLog.error(
+            "[Oracle] 已开启 thick 模式但未配置 ORACLE_CLIENT_LIB_DIR, 回退 thin 模式"
+        )
+        return
+    try:
+        oracledb.init_oracle_client(lib_dir=lib_dir)
+        ExceptionLog.info("[Oracle] thick 模式已启用, lib_dir=%s", lib_dir)
+    except Exception as exc:
+        ExceptionLog.error(
+            "[Oracle] 初始化 Oracle Client 失败, 回退 thin 模式: %s", exc
+        )
+
+def oracle_error_hint(exc: Exception) -> str:
+    """将 oracledb 驱动异常转成可操作的提示信息, 供调用方写入日志。"""
+    text: str = str(exc)
+    if "DPY-3010" in text:
+        return (
+            "Oracle 连接失败: 该 Oracle 版本过老(thin 模式仅支持 12.1+), "
+            "请在 .env.dev 配置 ORACLE_THICK_MODE_ENABLED=true 和 "
+            "ORACLE_CLIENT_LIB_DIR 以启用 thick 模式"
+        )
+    return f"Oracle 连接失败: {text}"
 
 class OracleAdapter:
     def __init__(
@@ -76,6 +117,7 @@ class OracleAdapter:
             ExceptionLog.error(
                 f"Oracle 查询失败!!!,失败原因:{str(err)}\n错误堆栈: {traceback.format_exc()}"
             )
+            ExceptionLog.error("%s", oracle_error_hint(err))
             return []
 
     def set_connect_timeout(self, timeout: int) -> bool:

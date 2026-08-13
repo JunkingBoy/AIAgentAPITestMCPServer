@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict
 from tools.Files import get_env_val
 from utils.Logs import ExceptionLog
 from adapters.Mysql import MysqlAdapter
-from adapters.Oracle import OracleAdapter
+from adapters.Oracle import OracleAdapter, ensure_oracle_client, oracle_error_hint
 from utils.Pool import StandardDatabasesConnectPool
 from trait.IStandardAdapter import StandardAdapterTrait
 from dto.StandardDBTemplate import StandardDBConnectParamsStruct
@@ -36,6 +36,8 @@ class StandardDatabasesConnPoolFactory:
         if hasattr(self, '_initialized') and self._initialized: return
         self._initialized: bool = True
         self._register_default_adapter()
+        # 在首次 oracledb 连接前尽早确定进程级 thick/thin 模式
+        ensure_oracle_client()
 
     @property
     def sql_pools(self) -> dict: return copy.deepcopy(_POOL_REGISTRY.sql_pools)
@@ -107,5 +109,6 @@ class StandardDatabasesConnPoolFactory:
                     return pool
                 except Exception as err:
                     ExceptionLog.error("获取数据库连接池失败,异常原因: %s\n错误堆栈: %s", str(err), traceback.format_exc())
-                    ExceptionLog.error("获取数据库连接池失败,请检查系统名称和数据库类型是否正确!")
+                    if db_typ == "oracle": ExceptionLog.error("%s", oracle_error_hint(err))
+                    else: ExceptionLog.error("获取数据库连接池失败,请检查系统名称和数据库类型是否正确!")
                     return
