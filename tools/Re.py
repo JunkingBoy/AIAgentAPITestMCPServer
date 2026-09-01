@@ -102,6 +102,19 @@ def builtin_random(raw_args: str = "") -> str:
       n: int = int(raw_args) if raw_args.isdigit() else 8
       return "".join(random.choices(string.ascii_lowercase + string.digits, k=n))
 
+def builtin_randint(raw_args: str = "") -> str:
+    """
+    纯数字随机整数（闭区间）:
+      ${__randint()}              → [0, 9999999999]
+      ${__randint(100)}           → [0, 100]
+      ${__randint(1000000000,9999999999)} → [1000000000, 9999999999]
+    返回 str，用于 number 型 JSON 字段或拼接手机号等纯数字场景。
+    """
+    parts: list[str] = [p.strip() for p in raw_args.split(",") if p.strip()]
+    if not parts: return str(random.randint(0, 9_999_999_999))
+    if len(parts) == 1: return str(random.randint(0, int(parts[0])))
+    return str(random.randint(int(parts[0]), int(parts[1])))
+
 def builtin_uuid() -> str: return str(uuid.uuid4()) # 36位uuid
 
 def builtin_now(raw_args: str = "") -> str:

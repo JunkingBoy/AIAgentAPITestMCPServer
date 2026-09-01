@@ -10,6 +10,7 @@ from utils.Logs import ExceptionLog
 from trait.IStandardAdapter import StandardAdapterTrait
 from tools.Re import (
     builtin_random,
+    builtin_randint,
     builtin_uuid,
     builtin_now
 )
@@ -86,6 +87,7 @@ class StandardRuntimeVariablePool:
 
     def _register_builtins(self) -> None:
         self._builtins["random"] = builtin_random
+        self._builtins["randint"] = builtin_randint
         self._builtins["uuid"] = builtin_uuid
         self._builtins["now"] = builtin_now
 
